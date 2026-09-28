@@ -1,16 +1,45 @@
-# React + Vite
+# Vapitos
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+PWA mobile-first para gestionar inventario, ventas, compras, garantías y finanzas de Vapitos.
 
-Currently, two official plugins are available:
+## Stack
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+- React + Vite
+- Tailwind CSS v4
+- Supabase / PostgreSQL / Auth
+- React Router
+- vite-plugin-pwa
+- GitHub Pages mediante GitHub Actions
 
-## React Compiler
+## Desarrollo local
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+1. Instala Node.js 22 o superior.
+2. Copia `.env.example` como `.env.local`.
+3. Completa `VITE_SUPABASE_URL` y `VITE_SUPABASE_PUBLISHABLE_KEY`.
+4. Ejecuta:
 
-## Expanding the ESLint configuration
+```bash
+npm install
+npm run dev
+```
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+## Base de datos
+
+El archivo `supabase/final_migration.sql` contiene las funciones y cambios necesarios para la versión final. No borra las tablas existentes.
+
+Ejecuta ese archivo en el SQL Editor del proyecto Supabase que ya contiene los datos de Vapitos.
+
+## GitHub Pages
+
+El proyecto usa `HashRouter`, por lo que funciona directamente en GitHub Pages sin configurar rewrites del servidor.
+
+En GitHub, agrega estos Repository Secrets:
+
+- `VITE_SUPABASE_URL`
+- `VITE_SUPABASE_PUBLISHABLE_KEY`
+
+Luego habilita Pages usando **GitHub Actions**. Cada push a `main` construirá y publicará la aplicación.
+
+La URL esperada para este repositorio es:
+
+`https://davidvergaraa.github.io/vapitos/`
