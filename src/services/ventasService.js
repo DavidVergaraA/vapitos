@@ -14,6 +14,8 @@ const ventaSelect = `
   comision_tipo,
   comision_valor,
   comision_monto,
+  estado_comision,
+  fecha_pago_comision,
   destino_utilidad_externa,
   inventario (
     id,
