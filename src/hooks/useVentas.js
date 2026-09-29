@@ -1,106 +1,57 @@
+import { useCallback, useEffect, useState } from 'react'
 import {
-  useCallback,
-  useEffect,
-  useState,
-} from 'react'
-
-import {
-  obtenerVentas,
+  crearVendedorExterno,
+  editarVenta,
   obtenerInventarioDisponible,
+  obtenerVendedoresExternos,
+  obtenerVentas,
+  registrarAbono,
   registrarVenta,
+  marcarComisionPagada,
 } from '../services/ventasService'
 
 export function useVentas() {
   const [ventas, setVentas] = useState([])
-  const [inventarioDisponible, setInventarioDisponible] =
-    useState([])
-
+  const [inventarioDisponible, setInventarioDisponible] = useState([])
+  const [vendedores, setVendedores] = useState([])
   const [loading, setLoading] = useState(true)
-  const [loadingInventario, setLoadingInventario] =
-    useState(true)
-
+  const [loadingInventario, setLoadingInventario] = useState(true)
   const [error, setError] = useState(null)
 
-  const cargarVentas = useCallback(async () => {
+  const cargar = useCallback(async () => {
     try {
       setLoading(true)
+      setLoadingInventario(true)
       setError(null)
-
-      const datos = await obtenerVentas()
-
-      setVentas(datos)
-    } catch (error) {
-      console.error(
-        'Error cargando ventas:',
-        error
-      )
-
-      setError(error)
+      const [ventasData, inventarioData, vendedoresData] = await Promise.all([
+        obtenerVentas(), obtenerInventarioDisponible(), obtenerVendedoresExternos(),
+      ])
+      setVentas(ventasData)
+      setInventarioDisponible(inventarioData)
+      setVendedores(vendedoresData)
+    } catch (e) {
+      console.error(e)
+      setError(e)
     } finally {
       setLoading(false)
+      setLoadingInventario(false)
     }
   }, [])
 
-  const cargarInventarioDisponible =
-    useCallback(async () => {
-      try {
-        setLoadingInventario(true)
+  useEffect(() => { cargar() }, [cargar])
 
-        const datos =
-          await obtenerInventarioDisponible()
-
-        setInventarioDisponible(datos)
-      } catch (error) {
-        console.error(
-          'Error cargando inventario disponible:',
-          error
-        )
-
-        setError(error)
-      } finally {
-        setLoadingInventario(false)
-      }
-    }, [])
-
-  useEffect(() => {
-    cargarVentas()
-    cargarInventarioDisponible()
-  }, [
-    cargarVentas,
-    cargarInventarioDisponible,
-  ])
-
-  const crearVenta = async (venta) => {
-    try {
-      setError(null)
-
-      await registrarVenta(venta)
-
-      await Promise.all([
-        cargarVentas(),
-        cargarInventarioDisponible(),
-      ])
-    } catch (error) {
-      console.error(
-        'Error registrando venta:',
-        error
-      )
-
-      setError(error)
-      throw error
-    }
+  const ejecutar = async (fn) => {
+    try { setError(null); await fn(); await cargar() }
+    catch (e) { setError(e); throw e }
   }
 
   return {
-    ventas,
-    inventarioDisponible,
-
-    loading,
-    loadingInventario,
-    error,
-
-    cargarVentas,
-    cargarInventarioDisponible,
-    crearVenta,
+    ventas, inventarioDisponible, vendedores, loading, loadingInventario, error,
+    recargar: cargar,
+    crearVenta: (v) => ejecutar(() => registrarVenta(v)),
+    actualizarVenta: (v) => ejecutar(() => editarVenta(v)),
+    agregarAbono: (a) => ejecutar(() => registrarAbono(a)),
+    pagarComision: (id) => ejecutar(() => marcarComisionPagada(id)),
+    crearVendedor: async (v) => { const nuevo = await crearVendedorExterno(v); await cargar(); return nuevo },
   }
 }

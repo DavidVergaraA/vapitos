@@ -1,80 +1,20 @@
-import { Link } from 'react-router-dom'
-import { ArrowRight, Boxes, ChartNoAxesCombined, CircleDollarSign, Gift, ShoppingCart, Wallet } from 'lucide-react'
-import { useAuth } from '../../contexts/AuthContext'
+import { useMemo } from 'react'
+import { ArrowDownRight, ArrowUpRight, Banknote, Boxes, CircleDollarSign, Clock3, RefreshCw, ShoppingBag, TrendingUp, TriangleAlert } from 'lucide-react'
 import { useDashboard } from '../../hooks/useDashboard'
+import { Card, Badge } from '../../components/ui/VapitosUI'
 import { formatearPesos } from '../../utils/formatters'
+import { formatearRangoSemana, obtenerFechaColombia } from '../../utils/dateUtils'
 
-function Dashboard() {
-  const { usuario } = useAuth()
-  const { resumen, loading, error, recargar } = useDashboard()
-  const nombre = usuario?.email?.split('@')[0] || 'equipo'
+function Stat({icon:Icon,label,value,sub,tone='blue'}){const tones={blue:'bg-blue-50 text-blue-600',green:'bg-emerald-50 text-emerald-600',amber:'bg-amber-50 text-amber-600',red:'bg-red-50 text-red-600'};return <Card className="p-5"><div className="flex items-start justify-between"><div><p className="text-xs font-black uppercase tracking-[.12em] text-slate-400">{label}</p><p className="mt-2 text-2xl font-black tracking-tight text-slate-950">{value}</p><p className="mt-1 text-xs font-semibold text-slate-400">{sub}</p></div><div className={`rounded-2xl p-3 ${tones[tone]}`}><Icon size={20}/></div></div></Card>}
 
-  if (loading) return <Loading />
-  if (error) return <ErrorState error={error} onRetry={recargar} />
-
-  return (
-    <div className="space-y-6">
-      <div>
-        <p className="text-sm font-semibold text-blue-600">Resumen del negocio</p>
-        <h1 className="mt-1 text-3xl font-bold text-slate-900">Hola, {nombre}</h1>
-        <p className="mt-1 text-slate-500">Aquí tienes el estado de Vapitos.</p>
-      </div>
-
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <Metric label="Ventas de hoy" value={formatearPesos(resumen.ventasHoy)} icon={CircleDollarSign} />
-        <Metric label="Utilidad de hoy" value={formatearPesos(resumen.utilidadHoy)} icon={ChartNoAxesCombined} />
-        <Metric label="Disponibles" value={resumen.inventarioDisponible} icon={Boxes} suffix="unidades" />
-        <Metric label="Garantías hoy" value={resumen.garantiasHoy} icon={Gift} suffix="casos" />
-      </div>
-
-      <section className="grid gap-4 lg:grid-cols-[1.3fr_1fr]">
-        <div className="rounded-3xl bg-white p-6 shadow-sm">
-          <div className="flex items-center justify-between gap-4">
-            <div>
-              <p className="text-sm font-semibold text-slate-500">Semana en curso</p>
-              <h2 className="mt-1 text-xl font-bold text-slate-900">Control financiero</h2>
-            </div>
-            <Wallet className="text-blue-600" />
-          </div>
-          <div className="mt-5 grid grid-cols-2 gap-3">
-            <Mini label="Ventas" value={formatearPesos(resumen.semana?.total_ventas)} />
-            <Mini label="Utilidad real" value={formatearPesos(resumen.semana?.utilidad_real)} />
-          </div>
-          <Link to="/finanzas" className="mt-4 inline-flex items-center gap-2 font-bold text-blue-600 hover:text-blue-700">Abrir finanzas <ArrowRight size={17} /></Link>
-        </div>
-
-        <div className="rounded-3xl bg-slate-900 p-6 text-white shadow-sm">
-          <p className="text-sm font-semibold text-slate-300">Acciones rápidas</p>
-          <div className="mt-4 grid grid-cols-2 gap-3">
-            <QuickLink to="/ventas" icon={CircleDollarSign} label="Nueva venta" />
-            <QuickLink to="/compras" icon={ShoppingCart} label="Nueva compra" />
-            <QuickLink to="/inventario" icon={Boxes} label="Inventario" />
-            <QuickLink to="/garantias" icon={Gift} label="Garantías" />
-          </div>
-        </div>
-      </section>
-    </div>
-  )
-}
-
-function Metric({ label, value, icon: Icon, suffix }) {
-  return <div className="rounded-3xl bg-white p-6 shadow-sm"><div className="flex items-center justify-between"><p className="text-sm font-semibold text-slate-500">{label}</p><Icon size={20} className="text-blue-600" /></div><p className="mt-3 text-2xl font-bold text-slate-900">{value}</p>{suffix && <p className="mt-1 text-sm text-slate-400">{suffix}</p>}</div>
-}
-
-function Mini({ label, value }) {
-  return <div className="rounded-2xl bg-slate-50 p-4"><p className="text-xs font-semibold text-slate-400">{label}</p><p className="mt-1 text-lg font-bold text-slate-800">{value}</p></div>
-}
-
-function QuickLink({ to, icon: Icon, label }) {
-  return <Link to={to} className="flex min-h-24 flex-col justify-between rounded-2xl bg-white/10 p-4 transition hover:bg-white/15"><Icon size={20} /><span className="font-bold">{label}</span></Link>
-}
-
-function Loading() {
-  return <div className="rounded-3xl bg-white p-10 text-center text-slate-500 shadow-sm">Cargando resumen...</div>
-}
-
-function ErrorState({ error, onRetry }) {
-  return <div className="rounded-3xl bg-red-50 p-6"><p className="font-bold text-red-700">No pudimos cargar el resumen.</p><p className="mt-2 text-sm text-red-600">{error.message}</p><button onClick={onRetry} className="mt-4 rounded-xl bg-red-600 px-4 py-2 font-bold text-white">Intentar nuevamente</button></div>
-}
-
-export default Dashboard
+export default function Dashboard(){const {resumen,loading,error,recargar}=useDashboard();const max=Math.max(...(resumen?.series??[]).map(x=>Math.max(x.ventas,x.cobrado)),1);const hoy=obtenerFechaColombia();const semana=resumen?.semana;
+ if(loading)return <div className="space-y-5"><div className="h-40 animate-pulse rounded-[1.75rem] bg-slate-200"/><div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">{[1,2,3,4].map(x=><div key={x} className="h-32 animate-pulse rounded-[1.5rem] bg-slate-200"/>)}</div></div>
+ if(error)return <Card className="p-8"><p className="font-bold text-red-600">No pudimos cargar el dashboard.</p><p className="mt-2 text-sm text-slate-500">{error.message}</p><button onClick={recargar} className="mt-4 rounded-xl bg-blue-600 px-4 py-2 font-bold text-white">Reintentar</button></Card>
+ return <div className="space-y-6">
+   <section className="vapitos-gradient relative overflow-hidden rounded-[1.75rem] p-6 text-white shadow-2xl shadow-blue-200 sm:p-8"><div className="relative z-10 max-w-2xl"><div className="flex flex-wrap items-center gap-2"><Badge tone="blue">Hoy · {hoy}</Badge>{semana&&<Badge tone="slate">Semana {formatearRangoSemana(semana.fecha_inicio,semana.fecha_fin)}</Badge>}</div><h1 className="mt-4 text-3xl font-black tracking-tight sm:text-4xl">Tu negocio, de un vistazo.</h1><p className="mt-2 max-w-xl text-sm font-medium leading-6 text-slate-300">Ventas, caja, inventario y utilidad en una sola vista. Los números de dinero cobrado vienen de los abonos reales.</p><button onClick={recargar} className="mt-6 inline-flex items-center gap-2 rounded-xl bg-white/10 px-4 py-2.5 text-sm font-bold backdrop-blur transition hover:bg-white/20"><RefreshCw size={16}/>Actualizar</button></div><div className="absolute -right-20 -top-24 h-72 w-72 rounded-full bg-blue-400/20 blur-3xl"/><div className="absolute bottom-[-100px] right-10 h-56 w-56 rounded-full bg-violet-400/20 blur-3xl"/></section>
+   <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4"><Stat icon={ShoppingBag} label="Ventas hoy" value={formatearPesos(resumen.ventasHoy)} sub="Valor generado por ventas"/><Stat icon={Banknote} label="Cobrado hoy" value={formatearPesos(resumen.cobradoHoy)} sub="Abonos recibidos hoy" tone="green"/><Stat icon={TrendingUp} label="Utilidad estimada" value={formatearPesos(resumen.utilidadHoy)} sub="Venta − costo − comisión" tone="green"/><Stat icon={Boxes} label="Stock disponible" value={resumen.inventarioDisponible} sub="Unidades listas para vender" tone="amber"/></section>
+   <section className="grid gap-5 xl:grid-cols-[1.7fr_1fr]">
+    <Card className="p-5 sm:p-6"><div className="flex items-start justify-between"><div><p className="text-xs font-black uppercase tracking-[.12em] text-slate-400">Ritmo de caja</p><h2 className="mt-1 text-xl font-black">Últimos 7 días</h2></div><div className="flex gap-3 text-xs font-bold text-slate-400"><span className="flex items-center gap-1"><i className="h-2 w-2 rounded-full bg-blue-600"/>Ventas</span><span className="flex items-center gap-1"><i className="h-2 w-2 rounded-full bg-emerald-500"/>Cobrado</span></div></div><div className="mt-8 flex h-64 items-end gap-2 sm:gap-4">{resumen.series.map((d,i)=><div key={d.fecha} className="flex h-full flex-1 flex-col justify-end gap-2"><div className="relative flex h-52 items-end justify-center gap-1.5"><div title={`Ventas ${formatearPesos(d.ventas)}`} className="w-2.5 rounded-t-lg bg-blue-600 transition-all sm:w-4" style={{height:`${Math.max(d.ventas/max*100,d.ventas?4:1)}%`}}/><div title={`Cobrado ${formatearPesos(d.cobrado)}`} className="w-2.5 rounded-t-lg bg-emerald-500 transition-all sm:w-4" style={{height:`${Math.max(d.cobrado/max*100,d.cobrado?4:1)}%`}}/></div><p className="text-center text-[10px] font-bold text-slate-400">{new Intl.DateTimeFormat('es-CO',{weekday:'short'}).format(new Date(`${d.fecha}T12:00:00-05:00`)).replace('.','')}</p></div>)}</div></Card>
+    <div className="space-y-5"><Card className="p-5"><div className="flex items-center justify-between"><div><p className="text-xs font-black uppercase tracking-[.12em] text-slate-400">Por cobrar</p><p className="mt-1 text-2xl font-black text-red-600">{formatearPesos(resumen.porCobrarHoy)}</p></div><Clock3 className="text-red-500"/></div><p className="mt-3 text-sm font-medium text-slate-500">Saldo pendiente de clientes, sin mezclarlo con caja.</p></Card><Card className="p-5"><div className="flex items-center justify-between"><div><p className="text-xs font-black uppercase tracking-[.12em] text-slate-400">Garantías hoy</p><p className="mt-1 text-2xl font-black">{resumen.garantiasHoy}</p></div><TriangleAlert className="text-amber-500"/></div><p className="mt-3 text-sm font-medium text-slate-500">Casos registrados durante el día.</p></Card><Card className="p-5"><p className="text-xs font-black uppercase tracking-[.12em] text-slate-400">Capital de reinversión</p><p className="mt-1 text-2xl font-black">{formatearPesos(semana?.reinversion_ventas_externas||0)}</p><p className="mt-2 text-sm font-medium text-slate-500">Generado por ventas externas destinadas a reinversión esta semana.</p></Card></div>
+   </section>
+ </div>}

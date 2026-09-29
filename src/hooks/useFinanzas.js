@@ -4,11 +4,14 @@ import {
   cerrarSemana,
   marcarDistribucionPagada,
   obtenerCapitalReinversion,
+  obtenerPorCobrar,
+  obtenerComisionesPendientes,
   obtenerCierres,
   obtenerConfiguracion,
   obtenerResumenSemana,
   obtenerSocios,
 } from '../services/finanzasService'
+import { marcarComisionPagada } from '../services/ventasService'
 
 export function useFinanzas(fechaInicio, fechaFin) {
   const [resumen, setResumen] = useState(null)
@@ -16,6 +19,8 @@ export function useFinanzas(fechaInicio, fechaFin) {
   const [socios, setSocios] = useState([])
   const [cierres, setCierres] = useState([])
   const [capital, setCapital] = useState({ movimientos: [], saldo: 0 })
+  const [porCobrar, setPorCobrar] = useState([])
+  const [comisiones, setComisiones] = useState([])
   const [loading, setLoading] = useState(true)
   const [guardando, setGuardando] = useState(false)
   const [error, setError] = useState(null)
@@ -27,13 +32,15 @@ export function useFinanzas(fechaInicio, fechaFin) {
       setLoading(true)
       setError(null)
 
-      const [resumenData, configuracionData, sociosData, cierresData, capitalData] =
+      const [resumenData, configuracionData, sociosData, cierresData, capitalData, porCobrarData, comisionesData] =
         await Promise.all([
           obtenerResumenSemana(fechaInicio, fechaFin),
           obtenerConfiguracion(),
           obtenerSocios(),
           obtenerCierres(),
           obtenerCapitalReinversion(),
+          obtenerPorCobrar(),
+          obtenerComisionesPendientes(),
         ])
 
       setResumen(resumenData)
@@ -41,6 +48,8 @@ export function useFinanzas(fechaInicio, fechaFin) {
       setSocios(sociosData)
       setCierres(cierresData)
       setCapital(capitalData)
+      setPorCobrar(porCobrarData)
+      setComisiones(comisionesData)
     } catch (error) {
       console.error('Error cargando finanzas:', error)
       setError(error)
@@ -100,6 +109,20 @@ export function useFinanzas(fechaInicio, fechaFin) {
     }
   }
 
+  const pagarComision = async (id) => {
+    try {
+      setGuardando(true)
+      setError(null)
+      await marcarComisionPagada(id)
+      await cargar()
+    } catch (error) {
+      setError(error)
+      throw error
+    } finally {
+      setGuardando(false)
+    }
+  }
+
   const pagarDistribucion = async (id) => {
     try {
       setGuardando(true)
@@ -121,6 +144,8 @@ export function useFinanzas(fechaInicio, fechaFin) {
     cierres,
     cierreActual,
     capital,
+    porCobrar,
+    comisiones,
     distribucionesPendientes,
     loading,
     guardando,
@@ -129,5 +154,6 @@ export function useFinanzas(fechaInicio, fechaFin) {
     guardarConfiguracion,
     ejecutarCierre,
     pagarDistribucion,
+    pagarComision,
   }
 }
