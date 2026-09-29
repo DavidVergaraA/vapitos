@@ -92,106 +92,112 @@ alter table public.inventario add constraint inventario_estado_check
 
 -- 6) MIGRACIÓN DE VENTAS HISTÓRICAS CON DATOS CONFIRMADOS
 --
--- IDs confirmados en la BD actual:
--- * Venta 7  -> Ijoy Tropical Storm / Dragon Fruit Berry -> $20.000
---              externa, comisión fija $6.000, destino reinversión.
--- * Venta 9  -> Lost Mary MO / Strawberry kiwi ice -> $20.000
---              todavía NO pagada.
--- * Venta 16 -> Craftboh V-play / Wtf -> $32.000
---              externa, comisión fija $8.000, destino reinversión.
--- Las demás ventas históricas confirmadas se consideran cobradas completas.
---
--- Se usan IDs directos para no confundir ventas que comparten producto/sabor.
+-- Ventas confirmadas por el usuario antes de ejecutar V2:
+-- * Lost Mary MO / Strawberry kiwi ice: $20.000, todavía NO pagada.
+-- * Craftboh V-play / Wtf: precio real $32.000, comisión externa $8.000, destino reinversión.
+-- * Ijoy Tropical Storm / Dragon Fruit Berry: precio real $20.000, comisión externa $6.000, destino reinversión.
+-- Las demás ventas históricas se consideran cobradas completas.
+
 do $$
 declare
-  v_lost_mary bigint := 9;
-  v_ijoy bigint := 7;
-  v_craftboh bigint := 16;
-  v_vendedor bigint;
+  v_lost_mary bigint;
+  v_craftboh bigint;
+  v_ijoy bigint;
+  v_cantidad integer;
 begin
-  -- Validación estricta antes de modificar datos.
-  if not exists (
-    select 1 from public.ventas v
-    join public.inventario i on i.id=v.inventario_id
-    join public.productos p on p.id=i.producto_id
-    where v.id=v_lost_mary
-      and lower(trim(p.marca))='lost mary'
-      and lower(trim(p.modelo))='mo'
-      and lower(trim(i.sabor))='strawberry kiwi ice'
-  ) then
-    raise exception 'La venta #9 no corresponde a Lost Mary MO / Strawberry kiwi ice.';
+  select count(*) into v_cantidad
+  from public.ventas v
+  join public.inventario i on i.id=v.inventario_id
+  join public.productos p on p.id=i.producto_id
+  where lower(trim(p.marca))='lost mary'
+    and lower(trim(p.modelo))='mo'
+    and lower(trim(i.sabor))='strawberry kiwi ice';
+  if v_cantidad <> 1 then
+    raise exception 'No se pudo identificar exactamente una venta Lost Mary MO / Strawberry kiwi ice.';
   end if;
 
-  if not exists (
-    select 1 from public.ventas v
-    join public.inventario i on i.id=v.inventario_id
-    join public.productos p on p.id=i.producto_id
-    where v.id=v_ijoy
-      and lower(trim(p.marca))='ijoy'
-      and lower(trim(p.modelo))='tropical storm'
-      and lower(trim(i.sabor))='dragon fruit berry'
-  ) then
-    raise exception 'La venta #7 no corresponde a Ijoy Tropical Storm / Dragon Fruit Berry.';
+  select v.id into v_lost_mary
+  from public.ventas v
+  join public.inventario i on i.id=v.inventario_id
+  join public.productos p on p.id=i.producto_id
+  where lower(trim(p.marca))='lost mary'
+    and lower(trim(p.modelo))='mo'
+    and lower(trim(i.sabor))='strawberry kiwi ice';
+
+  select count(*) into v_cantidad
+  from public.ventas v
+  join public.inventario i on i.id=v.inventario_id
+  join public.productos p on p.id=i.producto_id
+  where lower(trim(p.marca))='craftboh'
+    and lower(trim(p.modelo))='v-play'
+    and lower(trim(i.sabor))='wtf';
+  if v_cantidad <> 1 then
+    raise exception 'No se pudo identificar exactamente una venta Craftboh V-play / Wtf.';
   end if;
 
-  if not exists (
-    select 1 from public.ventas v
-    join public.inventario i on i.id=v.inventario_id
-    join public.productos p on p.id=i.producto_id
-    where v.id=v_craftboh
-      and lower(trim(p.marca))='craftboh'
-      and lower(trim(p.modelo))='v-play'
-      and lower(trim(i.sabor))='wtf'
-  ) then
-    raise exception 'La venta #16 no corresponde a Craftboh V-play / Wtf.';
+  select v.id into v_craftboh
+  from public.ventas v
+  join public.inventario i on i.id=v.inventario_id
+  join public.productos p on p.id=i.producto_id
+  where lower(trim(p.marca))='craftboh'
+    and lower(trim(p.modelo))='v-play'
+    and lower(trim(i.sabor))='wtf';
+
+  select count(*) into v_cantidad
+  from public.ventas v
+  join public.inventario i on i.id=v.inventario_id
+  join public.productos p on p.id=i.producto_id
+  where lower(trim(p.marca))='ijoy'
+    and lower(trim(p.modelo))='tropical storm'
+    and lower(trim(i.sabor))='dragon fruit berry';
+  if v_cantidad <> 1 then
+    raise exception 'No se pudo identificar exactamente una venta Ijoy Tropical Storm / Dragon Fruit Berry.';
   end if;
 
-  -- Crear/reutilizar el vendedor histórico.
-  select id into v_vendedor
-  from public.vendedores_externos
-  where lower(trim(nombre))=lower('Hermano de Juli')
-  order by id
-  limit 1;
+  select v.id into v_ijoy
+  from public.ventas v
+  join public.inventario i on i.id=v.inventario_id
+  join public.productos p on p.id=i.producto_id
+  where lower(trim(p.marca))='ijoy'
+    and lower(trim(p.modelo))='tropical storm'
+    and lower(trim(i.sabor))='dragon fruit berry';
 
-  if v_vendedor is null then
-    insert into public.vendedores_externos(nombre,activo)
-    values('Hermano de Juli',true)
-    returning id into v_vendedor;
+  -- No continuamos si ya hay abonos manuales sobre estas ventas: evita sobrescribir
+  -- información financiera si alguien vuelve a ejecutar la migración.
+  if exists (select 1 from public.abonos_ventas where venta_id in (v_lost_mary,v_craftboh,v_ijoy)) then
+    raise exception 'Ya existen abonos en una de las tres ventas históricas confirmadas; revisa antes de repetir la migración V2.';
   end if;
 
-  -- Corrige y clasifica las dos ventas externas históricas.
+  -- Corrige las dos ventas externas históricas. El vendedor queda pendiente de asignar.
   update public.ventas
   set precio_final=32000,
       tipo_venta='externa',
-      vendedor_externo_id=v_vendedor,
       comision_tipo='fijo',
       comision_valor=8000,
       comision_monto=8000,
       destino_utilidad_externa='reinversion',
-      estado_comision=coalesce(estado_comision,'pendiente')
+      estado_comision='pendiente'
   where id=v_craftboh;
 
   update public.ventas
   set precio_final=20000,
       tipo_venta='externa',
-      vendedor_externo_id=v_vendedor,
       comision_tipo='fijo',
       comision_valor=6000,
       comision_monto=6000,
       destino_utilidad_externa='reinversion',
-      estado_comision=coalesce(estado_comision,'pendiente')
+      estado_comision='pendiente'
   where id=v_ijoy;
 
-  -- Todas las ventas históricas, excepto la #9, se consideran cobradas completas.
-  -- Solo se crea el abono si esa venta todavía no tiene ninguno.
-  insert into public.abonos_ventas (venta_id,monto,metodo_pago,fecha_abono,notas)
+  -- Todas las ventas históricas excepto Lost Mary se consideran cobradas completas.
+  insert into public.abonos_ventas (venta_id, monto, metodo_pago, fecha_abono, notas)
   select v.id, v.precio_final, v.metodo_pago, v.fecha_venta,
          'Abono histórico migrado desde Vapitos 1.0'
   from public.ventas v
   where v.id <> v_lost_mary
     and not exists (select 1 from public.abonos_ventas a where a.venta_id=v.id);
 
-  -- La venta #9 queda deliberadamente sin abonos: $20.000 por cobrar.
+  -- Lost Mary queda con saldo completo pendiente: no se crea abono.
 end $$;
 
 -- 7) VENDEDORES DE EJEMPLO: no insertamos ninguno automáticamente.
@@ -202,27 +208,6 @@ alter table public.cierres_semanales add column if not exists por_cobrar numeric
 alter table public.cierres_semanales add column if not exists comisiones_externas numeric(12,2) not null default 0;
 alter table public.cierres_semanales add column if not exists ingresos_reventa_garantia numeric(12,2) not null default 0;
 alter table public.cierres_semanales add column if not exists reinversion_ventas_externas numeric(12,2) not null default 0;
-
--- 7c) CAPITAL DE REINVERSIÓN (compatibilidad/seguridad)
--- final_migration.sql ya crea esta tabla; IF NOT EXISTS evita depender del orden
--- si se ejecuta la V2 sobre una BD equivalente.
-create table if not exists public.movimientos_capital (
-  id bigint generated always as identity primary key,
-  tipo text not null check (tipo in ('reinversion','compra','ajuste')),
-  monto numeric(12,2) not null,
-  compra_id bigint references public.compras(id),
-  cierre_id bigint references public.cierres_semanales(id),
-  fecha timestamptz not null default now(),
-  notas text,
-  created_at timestamptz not null default now()
-);
-create index if not exists idx_movimientos_capital_fecha on public.movimientos_capital(fecha);
-alter table public.movimientos_capital enable row level security;
-drop policy if exists movimientos_capital_authenticated_all on public.movimientos_capital;
-create policy movimientos_capital_authenticated_all on public.movimientos_capital
-  for all to authenticated using (true) with check (true);
-grant select,insert,update,delete on public.movimientos_capital to authenticated;
-grant usage,select on sequence public.movimientos_capital_id_seq to authenticated;
 
 -- 8) RESUMEN DE VENTA / PAGOS
 create or replace function public.obtener_estado_pago_venta(p_venta_id bigint)
@@ -389,9 +374,8 @@ begin
   return p_venta_id;
 end;
 $$;
-grant execute on function public.editar_venta_v2(bigint,bigint,numeric,text,text) to authenticated;
 
-
+-- 11) ABONAR UNA VENTA
 create or replace function public.registrar_abono_venta(
   p_venta_id bigint, p_monto numeric(12,2), p_metodo_pago text, p_notas text default null
 )
@@ -514,7 +498,6 @@ begin
   return v_id;
 end;
 $$;
-grant execute on function public.registrar_reventa_garantia(bigint,bigint,numeric,text,numeric,text) to authenticated;
 
 -- 14) VENDEDORES: RPC sencilla para borrado lógico
 create or replace function public.desactivar_vendedor(p_id bigint)
@@ -544,20 +527,19 @@ pagos_hasta_fin as (
  group by a.venta_id
 ),
 ventas_calc as (
- select vp.*,coalesce(ph.pagado,0) as pagado_hasta_fin,
+ select v.*,coalesce(ph.pagado,0) pagado_hasta_fin,
    case
-     when vp.tipo_venta='externa' and vp.destino_utilidad_externa='reinversion' then 0
-     when vp.tipo_venta='reventa_garantia' then vp.precio_final - vp.costo_unitario
-     else vp.precio_final - vp.costo_unitario - coalesce(vp.comision_monto,0)
-   end as utilidad_para_reparto,
+     when v.tipo_venta='externa' and v.destino_utilidad_externa='reinversion' then 0
+     when v.tipo_venta='reventa_garantia' then v.precio_final - v.costo_unitario
+     else v.precio_final - v.costo_unitario - coalesce(v.comision_monto,0)
+   end utilidad_para_reparto,
    case
-     when vp.tipo_venta='externa' and vp.destino_utilidad_externa='reinversion' then
-       greatest(coalesce(ph.pagado,0) -
-         case when vp.precio_final > 0 then vp.comision_monto * coalesce(ph.pagado,0) / vp.precio_final else 0 end, 0)
+     when v.tipo_venta='externa' and v.destino_utilidad_externa='reinversion' then
+       greatest(v.pagado_hasta_fin - case when v.precio_final > 0 then v.comision_monto * v.pagado_hasta_fin / v.precio_final else 0 end, 0)
      else 0
-   end as reinversion_externa_total
- from ventas_periodo vp
- left join pagos_hasta_fin ph on ph.venta_id=vp.id
+   end reinversion_externa_total
+ from ventas_periodo v
+ left join pagos_hasta_fin ph on ph.venta_id=v.id
 ),
 pagos_periodo as (
  select coalesce(sum(a.monto),0) total_cobrado
@@ -566,12 +548,12 @@ pagos_periodo as (
    and a.fecha_abono < ((p_fecha_fin+1)::timestamp at time zone 'America/Bogota')
 ),
 por_cobrar_calc as (
- select coalesce(sum(greatest(vc.precio_final-vc.pagado_hasta_fin,0)),0) por_cobrar
- from ventas_calc vc
+ select coalesce(sum(greatest(v.precio_final-v.pagado_hasta_fin,0)),0) por_cobrar
+ from ventas_calc v
 ),
 reventas as (
- select coalesce(sum(vc.precio_final),0) ingreso
- from ventas_calc vc where vc.tipo_venta='reventa_garantia'
+ select coalesce(sum(v.precio_final),0) ingreso
+ from ventas_periodo v where v.tipo_venta='reventa_garantia'
 ),
 garantias_calc as (
  select coalesce(sum(case when g.tipo='devolucion' then g.monto_reembolso when g.tipo='reemplazo' then coalesce(pr.costo_mayorista,0) else 0 end),0) perdida
@@ -583,19 +565,18 @@ garantias_calc as (
 )
 select
  p_fecha_inicio,p_fecha_fin,
- coalesce(sum(vc.precio_final),0),
+ coalesce(sum(v.precio_final),0),
  pp.total_cobrado,
  pc.por_cobrar,
- coalesce(sum(vc.costo_unitario),0),
- coalesce(sum(vc.comision_monto),0),
+ coalesce(sum(v.costo_unitario),0),
+ coalesce(sum(v.comision_monto),0),
  gc.perdida,
  rv.ingreso,
- coalesce(sum(vc.reinversion_externa_total),0),
- coalesce(sum(vc.utilidad_para_reparto),0)-gc.perdida
-from ventas_calc vc, pagos_periodo pp, por_cobrar_calc pc, garantias_calc gc, reventas rv
+ coalesce(sum(v.reinversion_externa_total),0),
+ coalesce(sum(v.utilidad_para_reparto),0)-gc.perdida
+from ventas_calc v, pagos_periodo pp, por_cobrar_calc pc, garantias_calc gc, reventas rv
 group by pp.total_cobrado,pc.por_cobrar,gc.perdida,rv.ingreso;
 $$;
-grant execute on function public.obtener_resumen_semana_v2(date,date) to authenticated;
 
 -- 15b) CIERRE SEMANAL V2
 create or replace function public.cerrar_semana(

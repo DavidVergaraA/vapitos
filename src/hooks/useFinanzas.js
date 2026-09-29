@@ -11,7 +11,6 @@ import {
   obtenerResumenSemana,
   obtenerSocios,
 } from '../services/finanzasService'
-import { marcarComisionPagada } from '../services/ventasService'
 
 export function useFinanzas(fechaInicio, fechaFin) {
   const [resumen, setResumen] = useState(null)
@@ -109,20 +108,6 @@ export function useFinanzas(fechaInicio, fechaFin) {
     }
   }
 
-  const pagarComision = async (id) => {
-    try {
-      setGuardando(true)
-      setError(null)
-      await marcarComisionPagada(id)
-      await cargar()
-    } catch (error) {
-      setError(error)
-      throw error
-    } finally {
-      setGuardando(false)
-    }
-  }
-
   const pagarDistribucion = async (id) => {
     try {
       setGuardando(true)
@@ -154,6 +139,5 @@ export function useFinanzas(fechaInicio, fechaFin) {
     guardarConfiguracion,
     ejecutarCierre,
     pagarDistribucion,
-    pagarComision,
   }
 }

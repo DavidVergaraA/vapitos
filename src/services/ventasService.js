@@ -99,12 +99,17 @@ export async function registrarVenta(venta) {
 }
 
 export async function editarVenta(venta) {
-  const { data, error } = await supabase.rpc('editar_venta_v2', {
+  const { data, error } = await supabase.rpc('editar_venta_v3', {
     p_venta_id: Number(venta.id),
     p_inventario_nuevo_id: Number(venta.inventario_id),
     p_precio_final: Number(venta.precio_final),
     p_metodo_pago: venta.metodo_pago,
     p_notas: venta.notas?.trim() || null,
+    p_tipo_venta: venta.tipo_venta || 'normal',
+    p_vendedor_externo_id: venta.vendedor_externo_id ? Number(venta.vendedor_externo_id) : null,
+    p_comision_tipo: venta.tipo_venta === 'externa' ? venta.comision_tipo : null,
+    p_comision_valor: venta.tipo_venta === 'externa' ? Number(venta.comision_valor) || 0 : 0,
+    p_destino_utilidad_externa: venta.tipo_venta === 'externa' ? venta.destino_utilidad_externa : null,
   })
   if (error) throw error
   return data

@@ -28,13 +28,39 @@ export async function obtenerInventarioDefectuoso() {
 }
 
 export async function obtenerGarantias() {
-  const { data, error } = await supabase.from('garantias').select(`
-    id, venta_id, tipo, motivo, fecha_garantia, inventario_reemplazo_id,
-    monto_reembolso, notas, destino_defectuoso, precio_reventa, venta_reventa_id,
-    ventas (id, precio_final, inventario (id, sabor, productos (marca, modelo)))
-  `).order('fecha_garantia',{ascending:false})
+  // IMPORTANTE:
+  // garantias tiene dos FK hacia ventas (venta_id y venta_reventa_id),
+  // por lo que PostgREST no puede inferir automáticamente la relación.
+  // Hacemos dos consultas explícitas para evitar la relación ambigua.
+  const { data: garantias, error } = await supabase
+    .from('garantias')
+    .select(`
+      id, venta_id, tipo, motivo, fecha_garantia, inventario_reemplazo_id,
+      monto_reembolso, notas, destino_defectuoso, precio_reventa, venta_reventa_id
+    `)
+    .order('fecha_garantia',{ascending:false})
+
   if (error) throw error
-  return data ?? []
+  if (!garantias?.length) return []
+
+  const ventaIds = [...new Set(garantias.map(g => g.venta_id).filter(Boolean))]
+
+  const { data: ventas, error: errorVentas } = await supabase
+    .from('ventas')
+    .select(`
+      id, precio_final,
+      inventario (id, sabor, productos (marca, modelo))
+    `)
+    .in('id', ventaIds)
+
+  if (errorVentas) throw errorVentas
+
+  const ventasMap = new Map((ventas ?? []).map(v => [v.id, v]))
+
+  return garantias.map(g => ({
+    ...g,
+    ventas: ventasMap.get(g.venta_id) ?? null,
+  }))
 }
 
 export async function registrarGarantia(garantia) {
